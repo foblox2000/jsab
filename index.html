@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity WebGL Player | JSB</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <script src="TemplateData/UnityProgress.js"></script>
+    <script src="Build/UnityLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js/dist/zip.min.js"></script>
+    <script>
+      (async function () {
+        const password = prompt("Enter password:");
+        if (!password) return;
+
+        const response = await fetch("Build/jsab.zip");
+        const blob = await response.blob();
+
+        const reader = new zip.ZipReader(new zip.BlobReader(blob));
+        const entries = await reader.getEntries();
+
+        const fileBlobs = {};
+        for (const entry of entries) {
+          const name = entry.filename.split("/").pop();
+          const data = await entry.getData(new zip.BlobWriter(), { password });
+          fileBlobs[name] = URL.createObjectURL(data);
+        }
+        await reader.close();
+
+        const originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function () {
+          const args = Array.from(arguments);
+          const urlStr = args[1] ? args[1].toString() : "";
+          for (const [filename, blobUrl] of Object.entries(fileBlobs)) {
+            if (urlStr.endsWith(filename)) {
+              args[1] = blobUrl;
+              break;
+            }
+          }
+          return originalOpen.apply(this, args);
+        };
+
+        UnityLoader.instantiate("unityContainer", "Build/jsab.json", { onProgress: UnityProgress });
+      })();
+    </script>
+    <style>
+      body {
+        cursor: url('Cursor.png'), auto;
+        background-color: black;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      #unityContainer {
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+#loading-text {
+  font-weight: bold;
+  background: linear-gradient(
+    270deg,
+    #ff0000,
+    #ff7f00,
+    #ffff00,
+    #00ff00,
+    #0000ff,
+    #4b0082,
+    #8f00ff
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow 3s ease infinite;
+}
+
+@keyframes rainbow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+    </style>
+  </head>
+  <body>
+    <div class="webgl-content">
+      <div id="unityContainer" ></div>
+    </div>
+  </body>
+</html>
